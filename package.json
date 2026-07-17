@@ -1,0 +1,50 @@
+{
+  "name": "@hyzecloud/sdk",
+  "version": "0.1.0",
+  "description": "Official Node.js / Bun SDK for the Hyze Cloud API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke": "bun run scripts/live-smoke.ts",
+    "prepublishOnly": "bun run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "hyze",
+    "hyzecloud",
+    "sdk",
+    "api",
+    "paas",
+    "deploy",
+    "bun",
+    "nodejs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hyzecloud/hyzecloud"
+  },
+  "homepage": "https://docs.hyzecloud.app",
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Environment (keep .env.example)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing / coverage
+coverage/
+.nyc_output/
+
+# Accidental Windows device redirect (e.g. `> nul`)
+nul
+nul/
