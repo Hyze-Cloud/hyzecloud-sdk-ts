@@ -40,9 +40,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hyzecloud/hyzecloud"
+    "url": "git+https://github.com/Hyze-Cloud/hyzecloud-sdk-ts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/issues"
   },
   "homepage": "https://docs.hyzecloud.app",
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "typescript": "^5.9.3"

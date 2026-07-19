@@ -137,7 +137,12 @@ export type DeployFromZipInput = {
   name: string;
   runtime: Runtime;
   memoryMB: number;
-  startupCommand: string;
+  /**
+   * Optional start command.
+   * - Omit or pass `"auto"` → Hyze detects the right command (Vite, Next, Node, static, Python…).
+   * - Pass a custom shell command to override.
+   */
+  startupCommand?: string;
   envVars?: Record<string, string> | string;
   exposePort?: number;
   subdomain?: string;
@@ -150,7 +155,12 @@ export type DeployFromRepoInput = {
   name: string;
   runtime: Runtime;
   memoryMB: number;
-  startupCommand: string;
+  /**
+   * Optional start command.
+   * - Omit or pass `"auto"` → Hyze detects the right command.
+   * - Pass a custom shell command to override.
+   */
+  startupCommand?: string;
   envVars?: Record<string, string> | string;
   exposePort?: number;
   subdomain?: string;

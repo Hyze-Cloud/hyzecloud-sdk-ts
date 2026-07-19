@@ -68,17 +68,19 @@ await hyze.apps.deployFromZip({
   name: "my-api",
   runtime: "node",
   memoryMB: 512,
-  startupCommand: "node server.js",
+  // startupCommand optional — omit or "auto" to let Hyze detect
   exposePort: 3000,
   subdomain: "my-api",
 });
 
-// Deploy from GitHub
+// Custom start when you need full control:
+// await hyze.apps.deployFromZip({ ..., startupCommand: "node server.js" });
+
+// Deploy from GitHub (startupCommand optional — defaults to auto)
 await hyze.apps.deployFromRepo({
   name: "my-api",
   runtime: "bun",
   memoryMB: 512,
-  startupCommand: "bun run src/index.ts",
   repository: {
     id: 123,
     owner: "acme",
@@ -141,7 +143,7 @@ await hyze.request("/apps/", { method: "GET", query: { workspaceId: "org_1" } })
 
 ## Live smoke test (API real)
 
-Read-only (list/get/logs). Prints full JSON body per step (secrets redacted).
+Exercises list/get **and** write flows: create database → status/stats/backup, deploy ZIP app → env/logs/lifecycle/backup, then deletes what it created (unless you keep resources). Prints full JSON body per step (secrets redacted).
 
 ```bash
 cd hyzecloud-sdk
@@ -161,6 +163,18 @@ HYZE_SMOKE_COMPACT=1 bun run smoke
 
 # larger body dump (default 4000 chars)
 HYZE_SMOKE_MAX_CHARS=12000 bun run smoke
+
+# only lists/gets (no create/deploy/delete)
+HYZE_SMOKE_READ_ONLY=1 bun run smoke
+
+# create resources but do not delete them
+HYZE_SMOKE_KEEP=1 bun run smoke
+
+# database engine (default redis) and RAM for smoke resources
+HYZE_SMOKE_ENGINE=postgresql HYZE_SMOKE_MEMORY_MB=256 bun run smoke
+
+# public app host suffix (API requires FQDN, e.g. smoke-xxx.hyzecloud.app)
+HYZE_SMOKE_BASE_DOMAIN=hyzecloud.app bun run smoke
 ```
 
 Script: `scripts/live-smoke.ts`

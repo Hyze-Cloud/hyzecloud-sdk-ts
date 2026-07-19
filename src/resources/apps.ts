@@ -98,7 +98,11 @@ export class AppsResource {
     form.append("name", input.name);
     form.append("runtime", input.runtime);
     form.append("memoryMB", String(input.memoryMB));
-    form.append("startupCommand", input.startupCommand);
+    // Default "auto" — platform detects start command from the project.
+    form.append(
+      "startupCommand",
+      input.startupCommand?.trim() ? input.startupCommand.trim() : "auto",
+    );
 
     if (input.envVars !== undefined) {
       form.append(

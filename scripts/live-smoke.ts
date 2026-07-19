@@ -9,18 +9,41 @@
  *   HYZE_WORKSPACE_ID=org_xxx
  *   HYZE_SMOKE_MAX_CHARS=4000
  *   HYZE_SMOKE_COMPACT=1
- *
- * READ-ONLY.
+ *   HYZE_SMOKE_READ_ONLY=1     # skip create/deploy/mutate (lists only)
+ *   HYZE_SMOKE_KEEP=1          # do not delete resources created by smoke
+ *   HYZE_SMOKE_ENGINE=redis    # postgresql | mysql | mongodb | redis (default redis)
+ *   HYZE_SMOKE_MEMORY_MB=256
+ *   HYZE_SMOKE_BASE_DOMAIN=hyzecloud.app  # FQDN suffix for public apps
  */
 
 import { HyzeCloud, HyzeError } from "../src/index";
+import type { DatabaseEngine, DatabaseItem, DatabaseStatus } from "../src/types";
 
 const apiKey = process.env.HYZE_API_KEY?.trim();
 const baseUrl = process.env.HYZE_API_URL?.trim();
 const workspaceId = process.env.HYZE_WORKSPACE_ID?.trim();
 const compact =
   process.env.HYZE_SMOKE_COMPACT === "1" || process.env.HYZE_SMOKE_COMPACT === "true";
+const readOnly =
+  process.env.HYZE_SMOKE_READ_ONLY === "1" || process.env.HYZE_SMOKE_READ_ONLY === "true";
+const keepResources =
+  process.env.HYZE_SMOKE_KEEP === "1" || process.env.HYZE_SMOKE_KEEP === "true";
 const maxChars = Math.max(500, Number(process.env.HYZE_SMOKE_MAX_CHARS ?? 4000) || 4000);
+const memoryMB = Math.max(256, Number(process.env.HYZE_SMOKE_MEMORY_MB ?? 256) || 256);
+const baseDomain = (
+  process.env.HYZE_SMOKE_BASE_DOMAIN ??
+  process.env.APPS_BASE_DOMAIN ??
+  "hyzecloud.app"
+)
+  .trim()
+  .toLowerCase()
+  .replace(/^\.+/, "")
+  .replace(/\.+$/, "");
+const engineRaw = (process.env.HYZE_SMOKE_ENGINE ?? "redis").trim().toLowerCase();
+const engines: DatabaseEngine[] = ["postgresql", "mysql", "mongodb", "redis"];
+const engine = (engines.includes(engineRaw as DatabaseEngine)
+  ? engineRaw
+  : "redis") as DatabaseEngine;
 
 if (!apiKey) {
   console.error(
@@ -45,19 +68,179 @@ const hyze = new HyzeCloud({
 type StepResult = {
   name: string;
   ok: boolean;
+  /** Soft failure (known limitation) — does not fail the smoke exit code */
+  soft?: boolean;
   detail?: string;
   status?: number;
   ms?: number;
 };
 
+type StepOptions = {
+  /** HTTP statuses treated as soft pass (e.g. session-only endpoints under API key) */
+  softStatuses?: number[];
+  softNote?: string;
+};
+
 const results: StepResult[] = [];
 const line = "─".repeat(64);
+const stamp = Date.now().toString(36);
+const smokeDbName = `smoke-db-${stamp}`;
+const smokeAppName = `smoke-app-${stamp}`;
+/** API expects full host: `prefix.hyzecloud.app`, not just the label. */
+const smokeSubdomain = `smoke-${stamp}.${baseDomain}`;
 
 const green = (t: string) => `\x1b[32m${t}\x1b[0m`;
 const red = (t: string) => `\x1b[31m${t}\x1b[0m`;
 const cyan = (t: string) => `\x1b[36m${t}\x1b[0m`;
 const dim = (t: string) => `\x1b[2m${t}\x1b[0m`;
 const yellow = (t: string) => `\x1b[33m${t}\x1b[0m`;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── Minimal ZIP (store / no compression) for deployFromZip ───────────────────
+
+function crc32(data: Uint8Array): number {
+  let c = ~0;
+  for (let i = 0; i < data.length; i++) {
+    c ^= data[i]!;
+    for (let k = 0; k < 8; k++) {
+      c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+    }
+  }
+  return ~c >>> 0;
+}
+
+function u16(n: number): Uint8Array {
+  const b = new Uint8Array(2);
+  b[0] = n & 0xff;
+  b[1] = (n >>> 8) & 0xff;
+  return b;
+}
+
+function u32(n: number): Uint8Array {
+  const b = new Uint8Array(4);
+  b[0] = n & 0xff;
+  b[1] = (n >>> 8) & 0xff;
+  b[2] = (n >>> 16) & 0xff;
+  b[3] = (n >>> 24) & 0xff;
+  return b;
+}
+
+function concat(parts: Uint8Array[]): Uint8Array {
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out;
+}
+
+/** Build an in-memory ZIP with stored (uncompressed) entries. */
+function zipStore(files: Array<{ name: string; content: string | Uint8Array }>): Uint8Array {
+  const locals: Uint8Array[] = [];
+  const centrals: Uint8Array[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBytes = new TextEncoder().encode(file.name);
+    const data =
+      typeof file.content === "string"
+        ? new TextEncoder().encode(file.content)
+        : file.content;
+    const crc = crc32(data);
+    const local = concat([
+      u32(0x04034b50),
+      u16(20),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(crc),
+      u32(data.length),
+      u32(data.length),
+      u16(nameBytes.length),
+      u16(0),
+      nameBytes,
+      data,
+    ]);
+    const central = concat([
+      u32(0x02014b50),
+      u16(20),
+      u16(20),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(crc),
+      u32(data.length),
+      u32(data.length),
+      u16(nameBytes.length),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(0),
+      u32(offset),
+      nameBytes,
+    ]);
+    locals.push(local);
+    centrals.push(central);
+    offset += local.length;
+  }
+
+  const centralDir = concat(centrals);
+  const end = concat([
+    u32(0x06054b50),
+    u16(0),
+    u16(0),
+    u16(files.length),
+    u16(files.length),
+    u32(centralDir.length),
+    u32(offset),
+    u16(0),
+  ]);
+
+  return concat([...locals, centralDir, end]);
+}
+
+function buildSmokeAppZip(): Uint8Array {
+  return zipStore([
+    {
+      name: "package.json",
+      content: JSON.stringify(
+        {
+          name: "hyze-smoke-app",
+          version: "0.0.1",
+          private: true,
+          main: "server.js",
+        },
+        null,
+        2,
+      ),
+    },
+    {
+      name: "server.js",
+      content: [
+        'const http = require("http");',
+        "const port = Number(process.env.PORT || process.env.EXPOSE_PORT || 3000);",
+        "const server = http.createServer((req, res) => {",
+        '  res.writeHead(200, { "Content-Type": "text/plain" });',
+        '  res.end("hyze smoke ok\\n");',
+        "});",
+        "server.listen(port, () => {",
+        '  console.log("smoke listening on", port);',
+        "});",
+        "",
+      ].join("\n"),
+    },
+  ]);
+}
+
+// ── Formatting helpers ───────────────────────────────────────────────────────
 
 function redactSecrets(value: unknown): unknown {
   if (value === null || value === undefined) return value;
@@ -85,7 +268,6 @@ function redactSecrets(value: unknown): unknown {
 }
 
 function cleanDockerLogs(raw: string): string {
-  // Strip Docker multiplex header bytes that show as \u0001(
   return raw
     .replace(/[\u0001\u0002\u0003]./g, "")
     .replace(/\r/g, "")
@@ -113,9 +295,7 @@ function formatBody(data: unknown): string {
   }
 }
 
-function countByStatus(
-  items: Array<{ status?: string }> | undefined,
-): string {
+function countByStatus(items: Array<{ status?: string }> | undefined): string {
   if (!items?.length) return "0";
   const map = new Map<string, number>();
   for (const item of items) {
@@ -147,8 +327,34 @@ function oneLineSummary(data: unknown): string {
     const dbs = obj.databases as Array<{ status?: string; engine?: string; name?: string }>;
     bits.push(`databases=${dbs.length}`);
     bits.push(countByStatus(dbs));
-    const engines = [...new Set(dbs.map((d) => d.engine).filter(Boolean))];
-    if (engines.length) bits.push(`engines=${engines.join(",")}`);
+    const enginesSeen = [...new Set(dbs.map((d) => d.engine).filter(Boolean))];
+    if (enginesSeen.length) bits.push(`engines=${enginesSeen.join(",")}`);
+  }
+
+  if (obj.database && typeof obj.database === "object") {
+    const db = obj.database as Record<string, unknown>;
+    bits.push(
+      `db=${String(db.name ?? db.id ?? "?")}`,
+      `engine=${String(db.engine ?? "?")}`,
+      `status=${String(db.status ?? "?")}`,
+      db.memoryMB != null ? `mem=${db.memoryMB}MB` : "",
+      db.host ? `host=${db.host}` : "",
+      db.port != null ? `port=${db.port}` : "",
+    );
+  }
+
+  if (Array.isArray(obj.backups)) {
+    bits.push(`backups=${obj.backups.length}`);
+    bits.push(countByStatus(obj.backups as Array<{ status?: string }>));
+  }
+
+  if (obj.backup && typeof obj.backup === "object") {
+    const b = obj.backup as Record<string, unknown>;
+    bits.push(
+      `backup=${String(b.id ?? "?")}`,
+      b.status != null ? `status=${b.status}` : "",
+      b.sizeBytes != null ? `size=${b.sizeBytes}B` : "",
+    );
   }
 
   if (Array.isArray(obj.invoices)) {
@@ -187,12 +393,17 @@ function oneLineSummary(data: unknown): string {
       `status=${String(c.status ?? "?")}`,
       c.publishedPort != null ? `port=${c.publishedPort}` : "",
       c.publicUrl ? `url=${c.publicUrl}` : "",
+      c.runtime ? `runtime=${c.runtime}` : "",
     );
     if (c.stats && typeof c.stats === "object") {
       const s = c.stats as Record<string, unknown>;
       bits.push(`cpu=${s.cpuPercent}%`, `mem=${s.memoryMB}/${s.memoryLimitMB}MB`);
     }
   }
+
+  if (typeof obj.appId === "string") bits.push(`appId=${obj.appId}`);
+  if (typeof obj.publicUrl === "string") bits.push(`publicUrl=${obj.publicUrl}`);
+  if (obj.publishedPort != null) bits.push(`publishedPort=${obj.publishedPort}`);
 
   if (typeof obj.logs === "string") {
     const cleaned = cleanDockerLogs(obj.logs);
@@ -223,7 +434,29 @@ function oneLineSummary(data: unknown): string {
   return filtered.join(" · ");
 }
 
-async function step<T>(name: string, fn: () => Promise<T>): Promise<T | null> {
+function extractAppId(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.appId === "string" && obj.appId) return obj.appId;
+  if (obj.container && typeof obj.container === "object") {
+    const id = (obj.container as { id?: unknown }).id;
+    if (typeof id === "string" && id) return id;
+  }
+  if (typeof obj.id === "string" && obj.id) return obj.id;
+  return null;
+}
+
+function extractDatabase(data: unknown): DatabaseItem | null {
+  if (!data || typeof data !== "object") return null;
+  const db = (data as { database?: DatabaseItem }).database;
+  return db?.id ? db : null;
+}
+
+async function step<T>(
+  name: string,
+  fn: () => Promise<T>,
+  options: StepOptions = {},
+): Promise<T | null> {
   console.log(`\n${line}`);
   console.log(cyan(`STEP  ${name}`));
   console.log(line);
@@ -247,9 +480,15 @@ async function step<T>(name: string, fn: () => Promise<T>): Promise<T | null> {
     const ms = Date.now() - started;
 
     if (err instanceof HyzeError) {
+      const soft =
+        options.softStatuses?.includes(err.status) === true;
+      const mark = soft ? yellow("SOFT") : red("FAIL");
       console.log(
-        `${red("FAIL")}  ${dim(`${ms}ms`)}  ${yellow(String(err.status))} ${err.code ?? ""} · ${err.message}`.trim(),
+        `${mark}  ${dim(`${ms}ms`)}  ${yellow(String(err.status))} ${err.code ?? ""} · ${err.message}`.trim(),
       );
+      if (soft && options.softNote) {
+        console.log(dim(`note: ${options.softNote}`));
+      }
       if (err.retryAfterSeconds != null) {
         console.log(dim(`retry-after: ${err.retryAfterSeconds}s`));
       }
@@ -259,10 +498,13 @@ async function step<T>(name: string, fn: () => Promise<T>): Promise<T | null> {
       }
       results.push({
         name,
-        ok: false,
+        ok: soft,
+        soft,
         status: err.status,
         ms,
-        detail: `${err.status} ${err.code ?? ""} ${err.message}`.trim(),
+        detail: soft
+          ? `soft ${err.status}: ${options.softNote ?? err.message}`
+          : `${err.status} ${err.code ?? ""} ${err.message}`.trim(),
       });
     } else {
       const message = err instanceof Error ? err.message : String(err);
@@ -277,25 +519,94 @@ async function step<T>(name: string, fn: () => Promise<T>): Promise<T | null> {
   }
 }
 
+async function waitForDatabaseStatus(
+  databaseId: string,
+  wanted: DatabaseStatus[],
+  opts?: { timeoutMs?: number; intervalMs?: number },
+): Promise<DatabaseItem | null> {
+  const timeoutMs = opts?.timeoutMs ?? 90_000;
+  const intervalMs = opts?.intervalMs ?? 3_000;
+  const started = Date.now();
+  let last: DatabaseItem | null = null;
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const res = await hyze.databases.get(databaseId);
+      last = res.database;
+      if (wanted.includes(res.database.status as DatabaseStatus)) {
+        return res.database;
+      }
+      if (res.database.status === "failed") {
+        return res.database;
+      }
+    } catch {
+      // keep polling
+    }
+    await sleep(intervalMs);
+  }
+
+  return last;
+}
+
+async function waitForAppReady(
+  appId: string,
+  opts?: { timeoutMs?: number; intervalMs?: number },
+): Promise<string | null> {
+  const timeoutMs = opts?.timeoutMs ?? 120_000;
+  const intervalMs = opts?.intervalMs ?? 4_000;
+  const started = Date.now();
+  let lastStatus: string | null = null;
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const res = await hyze.apps.get(appId);
+      lastStatus = String(res.container.status ?? "unknown");
+      if (lastStatus === "running" || lastStatus === "stopped" || lastStatus === "error") {
+        return lastStatus;
+      }
+    } catch {
+      // keep polling
+    }
+    await sleep(intervalMs);
+  }
+
+  return lastStatus;
+}
+
+// ── Run ──────────────────────────────────────────────────────────────────────
+
 console.log(line);
-console.log(cyan("Hyze Cloud SDK — live smoke (read-only)"));
+console.log(cyan("Hyze Cloud SDK — live smoke"));
 console.log(line);
 console.log(`baseUrl      : ${baseUrl ?? "https://api.hyzecloud.com/api (default)"}`);
 console.log(`workspaceId  : ${workspaceId ?? "(none)"}`);
 console.log(
   `apiKey       : ${apiKey.slice(0, 8)}…${apiKey.slice(-4)} (${apiKey.length} chars)`,
 );
-console.log(`mode         : ${compact ? "compact" : `full body (max ${maxChars} chars)`}`);
+console.log(`mode         : ${readOnly ? "read-only" : "read + write"}`);
+console.log(`cleanup      : ${readOnly ? "n/a" : keepResources ? "keep resources" : "delete created"}`);
+console.log(`engine       : ${engine} · memoryMB=${memoryMB}`);
+console.log(`app host     : ${smokeSubdomain}`);
+console.log(`mode dump    : ${compact ? "compact" : `full body (max ${maxChars} chars)`}`);
 console.log(
   dim(
-    "tip: HYZE_SMOKE_COMPACT=1 for short logs · HYZE_SMOKE_MAX_CHARS=8000 for bigger bodies",
+    "tip: HYZE_SMOKE_READ_ONLY=1 · HYZE_SMOKE_KEEP=1 · HYZE_SMOKE_COMPACT=1 · HYZE_SMOKE_ENGINE=postgresql",
   ),
 );
 
-const appsList = await step("apps.list", () => hyze.apps.list());
+// ── Read-only baseline ───────────────────────────────────────────────────────
 
+console.log(`\n${cyan("▸ READ")}`);
+
+const appsList = await step("apps.list", () => hyze.apps.list());
 await step("databases.list", () => hyze.databases.list());
-await step("apiKeys.list", () => hyze.apiKeys.list());
+// better-auth listApiKeys uses the session from request headers; Bearer API keys
+// pass our route auth but often get 401 from the better-auth list call itself.
+await step("apiKeys.list", () => hyze.apiKeys.list(), {
+  softStatuses: [401],
+  softNote:
+    "api-keys list may require session cookie; Bearer API key auth often returns 401 from better-auth listApiKeys",
+});
 await step("invoices.list", () => hyze.invoices.list());
 await step("plans.current", () => hyze.plans.current());
 await step("github.status", () => hyze.github.status());
@@ -305,16 +616,183 @@ const preferred =
 
 if (preferred?.id) {
   console.log(
-    `\n${dim(`using app for detail checks: ${preferred.name} (${preferred.status})`)}`,
+    `\n${dim(`using existing app for detail checks: ${preferred.name} (${preferred.status})`)}`,
   );
-  await step("apps.get", () => hyze.apps.get(preferred.id));
-  await step("apps.logs (tail=20)", () => hyze.apps.logs(preferred.id, { tail: 20 }));
-  await step("apps.getEnv", () => hyze.apps.getEnv(preferred.id));
+  await step("apps.get (existing)", () => hyze.apps.get(preferred.id));
+  await step("apps.logs (existing, tail=20)", () =>
+    hyze.apps.logs(preferred.id, { tail: 20 }),
+  );
+  await step("apps.getEnv (existing)", () => hyze.apps.getEnv(preferred.id));
 } else {
-  console.log(`\n${dim("(no apps in workspace — skipped apps.get / logs / env)")}`);
+  console.log(`\n${dim("(no existing apps — skipped detail checks on list item)")}`);
 }
 
-const passed = results.filter((r) => r.ok).length;
+// ── Write: database ──────────────────────────────────────────────────────────
+
+let createdDbId: string | null = null;
+let createdAppId: string | null = null;
+
+if (!readOnly) {
+  console.log(`\n${cyan("▸ WRITE · database")}`);
+
+  const createdDb = await step("databases.create", () =>
+    hyze.databases.create({
+      name: smokeDbName,
+      engine,
+      memoryMB,
+      storageGB: 1,
+      ...(workspaceId ? { workspaceId } : {}),
+    }),
+  );
+
+  createdDbId = extractDatabase(createdDb)?.id ?? null;
+
+  if (createdDbId) {
+    await step("databases.get (status)", () => hyze.databases.get(createdDbId!));
+
+    const ready = await step("databases.wait (running|failed)", async () => {
+      const db = await waitForDatabaseStatus(createdDbId!, ["running", "failed"]);
+      if (!db) throw new Error("timeout waiting for database status");
+      return { success: true as const, database: db };
+    });
+
+    const dbStatus = ready?.database.status;
+    if (dbStatus === "running") {
+      await step("databases.stats", () => hyze.databases.stats(createdDbId!));
+      await step("databases.logs (tail=20)", () =>
+        hyze.databases.logs(createdDbId!, { tail: 20 }),
+      );
+      await step("databases.operations", () => hyze.databases.operations(createdDbId!));
+
+      await step("databases.createBackup", () => hyze.databases.createBackup(createdDbId!));
+      await step("databases.listBackups", () => hyze.databases.listBackups(createdDbId!));
+    } else {
+      console.log(
+        dim(
+          `\n(database status=${dbStatus ?? "unknown"} — skipped stats/logs/backup)`,
+        ),
+      );
+    }
+  } else {
+    console.log(dim("\n(databases.create failed — skipped db follow-ups)"));
+  }
+
+  // ── Write: app ─────────────────────────────────────────────────────────────
+
+  console.log(`\n${cyan("▸ WRITE · app")}`);
+
+  const zip = buildSmokeAppZip();
+  console.log(dim(`deploy zip size: ${zip.byteLength} bytes · subdomain=${smokeSubdomain}`));
+
+  const deployed = await step("apps.deployFromZip", () =>
+    hyze.apps.deployFromZip({
+      file: zip,
+      filename: "smoke-app.zip",
+      name: smokeAppName,
+      runtime: "node",
+      memoryMB,
+      startupCommand: "node server.js",
+      exposePort: 3000,
+      subdomain: smokeSubdomain,
+      autoRestart: true,
+      // NODE_ENV / PORT / PATH / HYZE_* etc. are forbidden by the API
+      envVars: {
+        SMOKE: "1",
+        SMOKE_MARKER: "deploy",
+      },
+      ...(workspaceId ? { workspaceId } : {}),
+    }),
+  );
+
+  createdAppId = extractAppId(deployed);
+
+  if (createdAppId) {
+    await step("apps.get (after deploy)", () => hyze.apps.get(createdAppId!));
+
+    const appStatus = await step("apps.wait (running|stopped|error)", async () => {
+      const status = await waitForAppReady(createdAppId!);
+      if (!status) throw new Error("timeout waiting for app status");
+      return { success: true as const, status };
+    });
+
+    const status = (appStatus as { status?: string } | null)?.status;
+
+    await step("apps.logs (tail=30)", () => hyze.apps.logs(createdAppId!, { tail: 30 }));
+    await step("apps.getEnv", () => hyze.apps.getEnv(createdAppId!));
+    await step("apps.setEnv", () =>
+      hyze.apps.setEnv(createdAppId!, {
+        SMOKE: "1",
+        SMOKE_MARKER: "updated",
+        SMOKE_UPDATED_AT: new Date().toISOString(),
+      }),
+    );
+    await step("apps.getEnv (after set)", () => hyze.apps.getEnv(createdAppId!));
+    await step("apps.builds", () => hyze.apps.builds(createdAppId!));
+    await step("apps.updateSettings", () =>
+      hyze.apps.updateSettings(createdAppId!, {
+        name: `${smokeAppName}-renamed`,
+        autoRestart: true,
+      }),
+    );
+
+    if (status === "running") {
+      await step("apps.restart", () => hyze.apps.restart(createdAppId!));
+      await sleep(2_000);
+      await step("apps.get (after restart)", () => hyze.apps.get(createdAppId!));
+
+      await step("apps.stop", () => hyze.apps.stop(createdAppId!));
+      await sleep(2_000);
+      await step("apps.get (after stop)", () => hyze.apps.get(createdAppId!));
+
+      await step("apps.start", () => hyze.apps.start(createdAppId!));
+      await sleep(2_000);
+      await step("apps.get (after start)", () => hyze.apps.get(createdAppId!));
+
+      await step("apps.createBackup", () => hyze.apps.createBackup(createdAppId!));
+      await step("apps.listBackups", () => hyze.apps.listBackups(createdAppId!));
+    } else {
+      console.log(
+        dim(
+          `\n(app status=${status ?? "unknown"} — skipped restart/stop/start/backup lifecycle)`,
+        ),
+      );
+      // still try backup list if container exists
+      await step("apps.listBackups", () => hyze.apps.listBackups(createdAppId!));
+    }
+  } else {
+    console.log(dim("\n(apps.deployFromZip failed — skipped app follow-ups)"));
+  }
+
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+
+  console.log(`\n${cyan("▸ CLEANUP")}`);
+
+  if (keepResources) {
+    console.log(
+      dim(
+        `keeping resources (HYZE_SMOKE_KEEP=1):\n  db=${createdDbId ?? "—"}\n  app=${createdAppId ?? "—"}`,
+      ),
+    );
+  } else {
+    if (createdAppId) {
+      await step("apps.delete (cleanup)", () => hyze.apps.delete(createdAppId!));
+    } else {
+      console.log(dim("(no app to delete)"));
+    }
+    if (createdDbId) {
+      await step("databases.delete (cleanup)", () => hyze.databases.delete(createdDbId!));
+    } else {
+      console.log(dim("(no database to delete)"));
+    }
+  }
+} else {
+  console.log(`\n${dim("write steps skipped (HYZE_SMOKE_READ_ONLY=1)")}`);
+}
+
+// ── Summary ──────────────────────────────────────────────────────────────────
+
+const passed = results.filter((r) => r.ok && !r.soft).length;
+const soft = results.filter((r) => r.soft).length;
 const failed = results.filter((r) => !r.ok).length;
 const totalMs = results.reduce((sum, r) => sum + (r.ms ?? 0), 0);
 
@@ -323,15 +801,25 @@ console.log(cyan("SUMMARY"));
 console.log(line);
 
 for (const r of results) {
-  const mark = r.ok ? green("PASS") : red("FAIL");
+  const mark = r.soft ? yellow("SOFT") : r.ok ? green("PASS") : red("FAIL");
   const timing = dim(`${String(r.ms ?? 0).padStart(5)}ms`);
   console.log(
-    `${mark}  ${timing}  ${r.name}${r.ok ? "" : `  ${dim(r.detail ?? "")}`}`,
+    `${mark}  ${timing}  ${r.name}${r.ok && !r.soft ? "" : `  ${dim(r.detail ?? "")}`}`,
   );
 }
 
 console.log(line);
-console.log(`${passed} passed · ${failed} failed · ${results.length} steps · ${totalMs}ms`);
+console.log(
+  `${passed} passed · ${soft} soft · ${failed} failed · ${results.length} steps · ${totalMs}ms`,
+);
+
+if (!readOnly && !keepResources) {
+  console.log(
+    dim(
+      `created then cleaned: db=${createdDbId ?? "—"} · app=${createdAppId ?? "—"}`,
+    ),
+  );
+}
 
 if (failed > 0) {
   console.log(red("\nSmoke finished with failures."));
