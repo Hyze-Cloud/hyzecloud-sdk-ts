@@ -1,8 +1,14 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import type { HyzeCloud } from "../client";
 import type {
+  AppBuildProgressResponse,
+  AppDeploymentsResponse,
+  AppDeployment,
+  AppDeployResponse,
   AppDetailResponse,
   AppEnvResponse,
   AppLogsResponse,
+  AppRebuildResponse,
   AppsListResponse,
   DeployFromRepoInput,
   DeployFromZipInput,
@@ -73,9 +79,52 @@ export class AppsResource {
   ) {
     return this.client.get<AppLogsResponse>(`/apps/${encodeURIComponent(appId)}/logs`, query);
   }
+  deployments(appId: string) {
+    return this.client.get<AppDeploymentsResponse>(`/apps/${encodeURIComponent(appId)}/deployments`);
+  }
 
-  builds(appId: string) {
-    return this.client.get(`/apps/${encodeURIComponent(appId)}/builds`);
+  buildProgress(appId: string) {
+    return this.client.get<AppBuildProgressResponse>(`/apps/${encodeURIComponent(appId)}/build-progress`);
+  }
+
+  redeployFromZip(appId: string, file: DeployFromZipInput["file"], filename = "app.zip") {
+    const form = new FormData();
+    form.append("file", toBlobPart(file, filename), filename);
+    return this.client.request<AppDeployResponse>(`/apps/${encodeURIComponent(appId)}/files`, {
+      method: "PUT",
+      body: form,
+      rawBody: true,
+    });
+  }
+
+  rebuild(appId: string) {
+    return this.client.post<AppRebuildResponse>(`/apps/${encodeURIComponent(appId)}/rebuild`);
+  }
+
+  async waitForDeployment(appId: string, deploymentId: string, options: { timeoutMs?: number; pollMs?: number } = {}): Promise<AppDeployment> {
+    const timeoutMs = options.timeoutMs ?? 720_000;
+    const pollMs = options.pollMs ?? 1_000;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const result = await this.deployments(appId);
+      const deployment = result.deployments.find((item) => item.id === deploymentId);
+      if (deployment?.status === "success") return deployment;
+      if (deployment?.status === "failed") throw new Error(deployment.error || `Deployment ${deploymentId} failed`);
+      await sleep(pollMs);
+    }
+    throw new Error(`Timed out waiting for deployment ${deploymentId}`);
+  }
+
+  async waitForRunning(appId: string, options: { timeoutMs?: number; pollMs?: number } = {}): Promise<AppDetailResponse["container"]> {
+    const timeoutMs = options.timeoutMs ?? 720_000;
+    const pollMs = options.pollMs ?? 1_000;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const result = await this.get(appId);
+      if (result.container.status === "running") return result.container;
+      await sleep(pollMs);
+    }
+    throw new Error(`Timed out waiting for app ${appId} to be running`);
   }
 
   getEnv(appId: string) {
@@ -116,7 +165,7 @@ export class AppsResource {
     if (input.machineId !== undefined) form.append("machineId", input.machineId);
     if (input.workspaceId !== undefined) form.append("workspaceId", input.workspaceId);
 
-    return this.client.request("/apps/deploy", {
+    return this.client.request<AppDeployResponse>("/apps/deploy", {
       method: "POST",
       body: form,
       rawBody: true,

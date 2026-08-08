@@ -1,0 +1,148 @@
+{
+  "generatedAt": "2026-08-03T23:16:44.997Z",
+  "frameworks": [
+    {
+      "id": "next",
+      "name": "Next.js",
+      "file": "next.zip",
+      "runtime": "node",
+      "expectedKind": "next",
+      "exposePort": 3000,
+      "memoryMB": 2048,
+      "path": "/",
+      "marker": "hyze next"
+    },
+    {
+      "id": "vite",
+      "name": "Vite + React",
+      "file": "vite.zip",
+      "runtime": "node",
+      "expectedKind": "vite",
+      "exposePort": 3000,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze vite"
+    },
+    {
+      "id": "nuxt",
+      "name": "Nuxt",
+      "file": "nuxt.zip",
+      "runtime": "node",
+      "expectedKind": "nuxt",
+      "exposePort": 3000,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze nuxt"
+    },
+    {
+      "id": "astro",
+      "name": "Astro",
+      "file": "astro.zip",
+      "runtime": "node",
+      "expectedKind": "astro",
+      "exposePort": 4321,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze astro"
+    },
+    {
+      "id": "remix",
+      "name": "Remix (Vite)",
+      "file": "remix.zip",
+      "runtime": "node",
+      "expectedKind": "remix",
+      "exposePort": 3000,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze remix"
+    },
+    {
+      "id": "sveltekit",
+      "name": "SvelteKit (adapter-node)",
+      "file": "sveltekit.zip",
+      "runtime": "node",
+      "expectedKind": "sveltekit",
+      "exposePort": 3000,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze sveltekit"
+    },
+    {
+      "id": "angular",
+      "name": "Angular",
+      "file": "angular.zip",
+      "runtime": "node",
+      "expectedKind": "angular",
+      "exposePort": 4000,
+      "memoryMB": 1024,
+      "path": "/",
+      "marker": "hyze angular"
+    },
+    {
+      "id": "fastapi",
+      "name": "FastAPI",
+      "file": "fastapi.zip",
+      "runtime": "python",
+      "expectedKind": "fastapi",
+      "exposePort": 8000,
+      "memoryMB": 512,
+      "path": "/",
+      "marker": "hyze fastapi"
+    },
+    {
+      "id": "flask",
+      "name": "Flask",
+      "file": "flask.zip",
+      "runtime": "python",
+      "expectedKind": "flask",
+      "exposePort": 5000,
+      "memoryMB": 512,
+      "path": "/",
+      "marker": "hyze flask"
+    },
+    {
+      "id": "django",
+      "name": "Django",
+      "file": "django.zip",
+      "runtime": "python",
+      "expectedKind": "django",
+      "exposePort": 8000,
+      "memoryMB": 512,
+      "path": "/",
+      "marker": "hyze django"
+    },
+    {
+      "id": "python",
+      "name": "Python (generic)",
+      "file": "python.zip",
+      "runtime": "python",
+      "expectedKind": "python",
+      "exposePort": 3000,
+      "memoryMB": 512,
+      "path": "/",
+      "marker": "hyze python"
+    },
+    {
+      "id": "static",
+      "name": "Static HTML",
+      "file": "static.zip",
+      "runtime": "node",
+      "expectedKind": "static",
+      "exposePort": 3000,
+      "memoryMB": 256,
+      "path": "/",
+      "marker": "hyze static"
+    },
+    {
+      "id": "node-api",
+      "name": "Node.js API",
+      "file": "node-api.zip",
+      "runtime": "node",
+      "expectedKind": "node-api",
+      "exposePort": 3000,
+      "memoryMB": 512,
+      "path": "/",
+      "marker": "hyze node"
+    }
+  ]
+}

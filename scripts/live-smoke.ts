@@ -719,15 +719,30 @@ if (!readOnly) {
 
     await step("apps.logs (tail=30)", () => hyze.apps.logs(createdAppId!, { tail: 30 }));
     await step("apps.getEnv", () => hyze.apps.getEnv(createdAppId!));
-    await step("apps.setEnv", () =>
+    const envUpdated = await step("apps.setEnv", () =>
       hyze.apps.setEnv(createdAppId!, {
         SMOKE: "1",
         SMOKE_MARKER: "updated",
         SMOKE_UPDATED_AT: new Date().toISOString(),
       }),
     );
+    const beforeRedeployContainerId = envUpdated?.container?.id;
     await step("apps.getEnv (after set)", () => hyze.apps.getEnv(createdAppId!));
-    await step("apps.builds", () => hyze.apps.builds(createdAppId!));
+    await step("apps.deployments", () => hyze.apps.deployments(createdAppId!));
+    const redeployed = await step("apps.redeployFromZip", () =>
+      hyze.apps.redeployFromZip(createdAppId!, zip, "smoke-redeploy.zip"),
+    );
+    await step("apps.waitForRunning (redeploy)", () => hyze.apps.waitForRunning(createdAppId!));
+    if (beforeRedeployContainerId && redeployed?.containerId === beforeRedeployContainerId) {
+      throw new Error("Immutable redeploy did not produce a new container id");
+    }
+    if (!redeployed?.success || redeployed.appId !== createdAppId) {
+      throw new Error("ZIP redeploy returned an invalid success response");
+    }
+    const rebuild = await step("apps.rebuild", () => hyze.apps.rebuild(createdAppId!));
+    if (!rebuild?.deploymentId) throw new Error("Rebuild did not return deploymentId");
+    await step("apps.waitForDeployment", () => hyze.apps.waitForDeployment(createdAppId!, rebuild.deploymentId));
+    await step("apps.waitForRunning (rebuild)", () => hyze.apps.waitForRunning(createdAppId!));
     await step("apps.updateSettings", () =>
       hyze.apps.updateSettings(createdAppId!, {
         name: `${smokeAppName}-renamed`,

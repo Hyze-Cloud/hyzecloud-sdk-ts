@@ -129,6 +129,49 @@ export type AppEnvResponse = {
   success: true;
   envVars: Record<string, string>;
 };
+export type AppDeploymentStatus = "building" | "success" | "failed" | string;
+
+export type AppDeployment = {
+  id: string;
+  status: AppDeploymentStatus;
+  title?: string | null;
+  description?: string | null;
+  error?: string | null;
+  logs?: string | null;
+  logsStatus?: string | null;
+  createdAt: string;
+  commitSha?: string | null;
+  repository?: string | null;
+  branch?: string | null;
+  source?: string | null;
+};
+
+export type AppDeploymentsResponse = {
+  success: true;
+  deployments: AppDeployment[];
+};
+
+export type AppBuildProgressResponse = {
+  success: true;
+  phase?: string;
+  logs?: string;
+  updatedAt?: string;
+};
+
+export type AppDeployResponse = {
+  success: true;
+  appId: string;
+  containerId: string;
+  publishedPort?: number;
+  publicUrl?: string;
+  buildLogs?: string;
+};
+
+export type AppRebuildResponse = {
+  success: true;
+  deploymentId: string;
+  message?: string;
+};
 
 export type DeployFromZipInput = {
   file: Blob | File | Buffer | Uint8Array | ArrayBuffer;

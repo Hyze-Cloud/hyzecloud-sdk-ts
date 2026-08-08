@@ -72,22 +72,15 @@ await hyze.apps.deployFromZip({
   exposePort: 3000,
   subdomain: "my-api",
 });
+const history = await hyze.apps.deployments("app_001");
 
-// Custom start when you need full control:
-// await hyze.apps.deployFromZip({ ..., startupCommand: "node server.js" });
+// Replace the current production files with a new deployment.
+const redeploy = await hyze.apps.redeployFromZip("app_001", readFileSync("./app.zip"));
 
-// Deploy from GitHub (startupCommand optional — defaults to auto)
-await hyze.apps.deployFromRepo({
-  name: "my-api",
-  runtime: "bun",
-  memoryMB: 512,
-  repository: {
-    id: 123,
-    owner: "acme",
-    name: "api",
-    branch: "main",
-  },
-});
+// Rebuild current files and wait for the immutable deployment to finish.
+const rebuild = await hyze.apps.rebuild("app_001");
+await hyze.apps.waitForDeployment("app_001", rebuild.deploymentId);
+await hyze.apps.waitForRunning("app_001");
 ```
 
 ## Databases
@@ -178,6 +171,35 @@ HYZE_SMOKE_BASE_DOMAIN=hyzecloud.app bun run smoke
 ```
 
 Script: `scripts/live-smoke.ts`
+
+## Framework deploy test (`tests/frameworks`)
+
+One committed ZIP per framework the platform detects (Next.js, Vite, Nuxt, Astro, Remix, SvelteKit, Angular, FastAPI, Flask, Django, Python, static HTML, Node API). For each ZIP the test asserts two contracts:
+
+1. **Detection** — `inspect-env` must identify the project (`kind` matches the manifest).
+2. **Boot** — deployed with `startupCommand: "auto"`, the app must reach `running` and answer HTTP with the expected marker.
+
+```bash
+cd hyzecloud-sdk
+
+# regenerate the ZIPs + manifest (only needed when projects.ts changes)
+bun run frameworks:generate
+
+# detection only — fast, no deploys
+bun run frameworks:inspect
+
+# full: inspect + deploy + wait running + HTTP check + cleanup
+bun run frameworks:smoke
+
+# subset / longer per-app wait / keep resources
+bun run frameworks:smoke -- --only vite,next --timeout 900
+bun run frameworks:smoke -- --keep
+
+# public app host suffix (API requires FQDN, e.g. fw-xxx.hyzecloud.app)
+HYZE_FRAMEWORKS_BASE_DOMAIN=hyzecloud.app bun run frameworks:smoke
+```
+
+Scripts: `scripts/frameworks/generate.ts`, `scripts/frameworks/smoke.ts`
 
 ## Docs
 

@@ -22,6 +22,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "smoke": "bun run scripts/live-smoke.ts",
+    "frameworks:generate": "bun run scripts/frameworks/generate.ts",
+    "frameworks:inspect": "bun run scripts/frameworks/smoke.ts --inspect-only",
+    "frameworks:smoke": "bun run scripts/frameworks/smoke.ts",
     "prepublishOnly": "bun run build"
   },
   "engines": {
