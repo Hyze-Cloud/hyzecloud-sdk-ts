@@ -1,5 +1,6 @@
-import type { HyzeCloud } from "../client";
+import type { HyzeCloud } from "../client.js";
 import type {
+  AppDeploymentsResponse,
   AppDetailResponse,
   AppEnvResponse,
   AppLogsResponse,
@@ -7,7 +8,7 @@ import type {
   DeployFromRepoInput,
   DeployFromZipInput,
   UpdateAppSettingsInput,
-} from "../types";
+} from "../types.js";
 
 function toBlobPart(file: DeployFromZipInput["file"], filename: string): Blob {
   if (typeof Blob !== "undefined" && file instanceof Blob) {
@@ -74,8 +75,12 @@ export class AppsResource {
     return this.client.get<AppLogsResponse>(`/apps/${encodeURIComponent(appId)}/logs`, query);
   }
 
-  builds(appId: string) {
-    return this.client.get(`/apps/${encodeURIComponent(appId)}/builds`);
+  /** Histórico de deploys do app, paginado. O endpoint é `/deployments`. */
+  deployments(appId: string, query?: { page?: number; limit?: number }) {
+    return this.client.get<AppDeploymentsResponse>(
+      `/apps/${encodeURIComponent(appId)}/deployments`,
+      query,
+    );
   }
 
   getEnv(appId: string) {

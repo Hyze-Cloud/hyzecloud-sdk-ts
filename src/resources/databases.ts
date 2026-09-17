@@ -1,9 +1,9 @@
-import type { HyzeCloud } from "../client";
+import type { HyzeCloud } from "../client.js";
 import type {
   CreateDatabaseInput,
   DatabaseResponse,
   DatabasesListResponse,
-} from "../types";
+} from "../types.js";
 
 export class DatabasesResource {
   constructor(private readonly client: HyzeCloud) {}

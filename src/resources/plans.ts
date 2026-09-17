@@ -1,5 +1,5 @@
-import type { HyzeCloud } from "../client";
-import type { CurrentPlanResponse, PlansListResponse } from "../types";
+import type { HyzeCloud } from "../client.js";
+import type { CurrentPlanResponse, PlansListResponse } from "../types.js";
 
 export class PlansResource {
   constructor(private readonly client: HyzeCloud) {}

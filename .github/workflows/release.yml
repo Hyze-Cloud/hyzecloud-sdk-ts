@@ -1,0 +1,111 @@
+# Publica @hyzecloud/sdk no npm a partir de uma tag `v<versão>`.
+#   npm version patch && git push --follow-tags
+#
+# A tag TEM que bater com package.json (o job aborta antes de qualquer publish), o CI precisa
+# passar e o check de rotas roda de novo aqui: cliente publicado chamando rota morta é 404 pro
+# usuário. `NPM_TOKEN` precisa de permissão de publish no escopo @hyzecloud.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # --provenance assina via OIDC
+
+jobs:
+  checks:
+    name: Typecheck · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+  api-routes:
+    name: API routes (live)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Negative control (an invented route must 404)
+        run: |
+          code="$(curl -s -o /dev/null -w "%{http_code}" "https://api.hyzecloud.com/api/rota-inventada-do-ci")"
+          echo "rota inventada -> $code"
+          if [ "$code" != "404" ]; then
+            echo "esperava 404 numa rota inventada: sem isso o check não distingue rota viva de morta" >&2
+            exit 1
+          fi
+
+      - name: Every route the SDK calls still exists
+        run: bun run check:api
+
+  publish:
+    name: Publish to npm
+    needs: [checks, api-routes]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Setup Node (for npm publish)
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify tag matches package version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          case "${GITHUB_REF}" in
+            refs/tags/*)
+              TAG="${GITHUB_REF_NAME#v}"
+              if [ "$TAG" != "$PKG" ]; then
+                echo "Tag v$TAG does not match package.json version $PKG" >&2
+                exit 1
+              fi
+              echo "tag v$TAG == version $PKG" ;;
+            *) echo "workflow_dispatch: publicando a versão $PKG (sem tag para conferir)" ;;
+          esac
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      # `files: [dist, README.md]` + LICENSE (o npm sempre inclui o LICENSE).
+      - name: Publish
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

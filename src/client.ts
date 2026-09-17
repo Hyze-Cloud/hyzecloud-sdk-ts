@@ -1,11 +1,11 @@
-import { HyzeError, looksLikeErrorPayload, parseErrorBody } from "./errors";
-import type { HyzeClientOptions, RequestOptions } from "./types";
-import { ApiKeysResource } from "./resources/api-keys";
-import { AppsResource } from "./resources/apps";
-import { DatabasesResource } from "./resources/databases";
-import { GithubResource } from "./resources/github";
-import { InvoicesResource } from "./resources/invoices";
-import { PlansResource } from "./resources/plans";
+import { HyzeError, looksLikeErrorPayload, parseErrorBody } from "./errors.js";
+import type { HyzeClientOptions, RequestOptions } from "./types.js";
+import { ApiKeysResource } from "./resources/api-keys.js";
+import { AppsResource } from "./resources/apps.js";
+import { DatabasesResource } from "./resources/databases.js";
+import { GithubResource } from "./resources/github.js";
+import { InvoicesResource } from "./resources/invoices.js";
+import { PlansResource } from "./resources/plans.js";
 
 const DEFAULT_BASE_URL = "https://api.hyzecloud.com/api";
 

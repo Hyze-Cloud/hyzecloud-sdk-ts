@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig.json"
+      - ".github/workflows/ci.yml"
+  push:
+    branches: [main]
+  # A API vive em outro repositório: ela muda sem PR aqui. O schedule é o alarme.
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Typecheck · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Cache bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Smoke the built entry point
+        run: |
+          node -e "import('./dist/index.js').then((m) => {
+            for (const name of ['HyzeCloud', 'HyzeError', 'createHyzeClient']) {
+              if (typeof m[name] === 'undefined') throw new Error(name + ' não exportado');
+            }
+            console.log('dist/index.js OK');
+          })"
+
+  api-routes:
+    name: API routes (live)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: "1.3.14"
+
+      # Sem este controle o check não vale nada: se a API passasse a responder 404 em tudo
+      # (ou o domínio mudasse), "nenhuma rota morta" seria um verde falso.
+      - name: Negative control (an invented route must 404)
+        run: |
+          code="$(curl -s -o /dev/null -w "%{http_code}" "https://api.hyzecloud.com/api/rota-inventada-do-ci")"
+          echo "rota inventada -> $code"
+          if [ "$code" != "404" ]; then
+            echo "esperava 404 numa rota inventada: sem isso o check não distingue rota viva de morta" >&2
+            exit 1
+          fi
+
+      - name: Every route the SDK calls still exists
+        run: bun run check:api

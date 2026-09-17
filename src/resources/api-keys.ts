@@ -1,11 +1,11 @@
-import type { HyzeCloud } from "../client";
+import type { HyzeCloud } from "../client.js";
 import type {
   ApiKeyCreateResponse,
   ApiKeysListResponse,
   ApiKeyUpdateResponse,
   CreateApiKeyInput,
   UpdateApiKeyInput,
-} from "../types";
+} from "../types.js";
 
 export class ApiKeysResource {
   constructor(private readonly client: HyzeCloud) {}
