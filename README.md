@@ -1,5 +1,9 @@
 # @hyzecloud/sdk
 
+[![CI](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@hyzecloud/sdk)](https://www.npmjs.com/package/@hyzecloud/sdk)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 Official **Node.js / Bun** SDK for the [Hyze Cloud API](https://docs.hyzecloud.app).
 
 - Zero runtime dependencies (uses native `fetch`)
@@ -59,6 +63,9 @@ await hyze.apps.restart("app_001");
 await hyze.apps.logs("app_001", { tail: 200, timestamps: true });
 await hyze.apps.getEnv("app_001");
 await hyze.apps.setEnv("app_001", { NODE_ENV: "production" });
+
+// Deploy history (paginated)
+await hyze.apps.deployments("app_001", { limit: 30 });
 
 // Deploy from ZIP (Node / Bun)
 import { readFileSync } from "node:fs";
@@ -146,8 +153,6 @@ await hyze.request("/apps/", { method: "GET", query: { workspaceId: "org_1" } })
 Exercises list/get **and** write flows: create database → status/stats/backup, deploy ZIP app → env/logs/lifecycle/backup, then deletes what it created (unless you keep resources). Prints full JSON body per step (secrets redacted).
 
 ```bash
-cd hyzecloud-sdk
-
 # PowerShell
 $env:HYZE_API_KEY="hyze_sua_chave"
 bun run smoke
@@ -178,6 +183,32 @@ HYZE_SMOKE_BASE_DOMAIN=hyzecloud.app bun run smoke
 ```
 
 Script: `scripts/live-smoke.ts`
+
+## Development
+
+```bash
+bun install
+bun run typecheck
+bun run build
+bun run check:api     # are the routes this SDK calls still there?
+```
+
+`check:api` hits the production API **unauthenticated**: a 404 means the route is gone, any other
+status (401/400/…) means it exists. It runs on every PR, on the daily schedule and before publishing
+— a published client calling a dead route is a 404 for the user.
+
+## Release
+
+The tag drives the version: `vX.Y.Z` must match `package.json`, otherwise the workflow aborts before
+publishing.
+
+```bash
+npm version patch   # or minor / major
+git push --follow-tags
+```
+
+`release.yml` runs typecheck + build + `check:api` and publishes with `--access public --provenance`
+(OIDC-signed). `NPM_TOKEN` needs publish permission on the `@hyzecloud` scope.
 
 ## Docs
 

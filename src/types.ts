@@ -130,6 +130,50 @@ export type AppEnvResponse = {
   envVars: Record<string, string>;
 };
 
+/** Status de um deploy — espelha `application_deploy_logs.status` na API. */
+export type AppDeploymentStatus =
+  | "queued"
+  | "building"
+  | "success"
+  | "failed"
+  | "superseded"
+  | "cancelled";
+
+export type AppDeployment = {
+  id: string;
+  status: AppDeploymentStatus;
+  title: string | null;
+  description: string | null;
+  error: string | null;
+  /** Código estruturado da falha (HYZE-120); null quando não falhou. */
+  errorCode: string | null;
+  logs: string | null;
+  logsStatus: string | null;
+  createdAt: string;
+  commitSha: string | null;
+  repository: string | null;
+  branch: string | null;
+  source: string | null;
+  retryOfDeploymentId: string | null;
+  /** Como o container terminou (HYZE-228); null = nunca reportado. */
+  exitCode: number | null;
+  oomKilled: boolean | null;
+  /** Só em `queued`: por que o deploy ainda não começou (HYZE-152/153). */
+  waitingReason: string | null;
+  waitingDetail: string | null;
+  /** Posição na fila do dispatcher (HYZE-258); null fora de `queued`. */
+  queuePosition: number | null;
+  queuePositionOnMachine: number | null;
+};
+
+export type AppDeploymentsResponse = {
+  success: true;
+  deployments: AppDeployment[];
+  currentDeploymentId: string | null;
+  activeDeploymentId: string | null;
+  meta: { total: number; page: number; limit: number; totalPages: number };
+};
+
 export type DeployFromZipInput = {
   file: Blob | File | Buffer | Uint8Array | ArrayBuffer;
   /** Filename for the ZIP part (default: app.zip) */

@@ -1,5 +1,5 @@
-import type { HyzeCloud } from "../client";
-import type { GithubStatusResponse } from "../types";
+import type { HyzeCloud } from "../client.js";
+import type { GithubStatusResponse } from "../types.js";
 
 export class GithubResource {
   constructor(private readonly client: HyzeCloud) {}

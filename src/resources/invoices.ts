@@ -1,9 +1,9 @@
-import type { HyzeCloud } from "../client";
+import type { HyzeCloud } from "../client.js";
 import type {
   CreatePixInvoiceInput,
   InvoiceDetailResponse,
   InvoicesListResponse,
-} from "../types";
+} from "../types.js";
 
 export class InvoicesResource {
   constructor(private readonly client: HyzeCloud) {}
