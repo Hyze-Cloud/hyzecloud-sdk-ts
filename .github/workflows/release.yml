@@ -1,9 +1,17 @@
-# Publica @hyzecloud/sdk no npm a partir de uma tag `v<versão>`.
+# Publica @hyze-cloud/sdk no npm a partir de uma tag `v<versão>`.
 #   npm version patch && git push --follow-tags
 #
 # A tag TEM que bater com package.json (o job aborta antes de qualquer publish), o CI precisa
 # passar e o check de rotas roda de novo aqui: cliente publicado chamando rota morta é 404 pro
-# usuário. `NPM_TOKEN` precisa de permissão de publish no escopo @hyzecloud.
+# usuário.
+#
+# Autenticação: Trusted Publishing (OIDC) — sem token. O npm amarra o pacote a ESTE repositório
+# e a ESTE arquivo de workflow, então o publish só é aceito vindo daqui:
+#   npm trust github @hyze-cloud/sdk --file release.yml \
+#     --repo Hyze-Cloud/hyzecloud-sdk-ts --allow-publish
+# Isso é comando do dono (exige 2FA interativa). Não existe secret NPM_TOKEN: o npm está
+# restringindo tokens que burlam 2FA para publicação direta.
+# O npm embutido no Node 22 é < 11.5.1 e não sabe trocar o OIDC — daí o upgrade explícito.
 
 name: Release
 
@@ -104,8 +112,13 @@ jobs:
       - name: Build
         run: bun run build
 
+      # Trusted Publishing (OIDC) entrou no npm 11.5.1; o Node 22 traz npm 10.x.
+      # Sem este upgrade o `npm publish` abaixo falha com ENEEDAUTH.
+      - name: Upgrade npm for Trusted Publishing
+        run: npm install -g npm@^11
+
       # `files: [dist, README.md]` + LICENSE (o npm sempre inclui o LICENSE).
+      # Sem NODE_AUTH_TOKEN: o npm troca o OIDC do runner pelo publish token, e o
+      # `id-token: write` no topo é o que assina. `--provenance` é implícito aqui.
       - name: Publish
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

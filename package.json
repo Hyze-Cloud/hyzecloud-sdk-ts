@@ -1,5 +1,5 @@
 {
-  "name": "@hyzecloud/sdk",
+  "name": "@hyze-cloud/sdk",
   "version": "0.2.0",
   "description": "Official Node.js / Bun SDK for the Hyze Cloud API",
   "type": "module",

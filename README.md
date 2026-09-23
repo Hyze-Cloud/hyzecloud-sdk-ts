@@ -1,7 +1,7 @@
-# @hyzecloud/sdk
+# @hyze-cloud/sdk
 
 [![CI](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@hyzecloud/sdk)](https://www.npmjs.com/package/@hyzecloud/sdk)
+[![npm](https://img.shields.io/npm/v/@hyze-cloud/sdk)](https://www.npmjs.com/package/@hyze-cloud/sdk)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Official **Node.js / Bun** SDK for the [Hyze Cloud API](https://docs.hyzecloud.app).
@@ -14,15 +14,15 @@ Official **Node.js / Bun** SDK for the [Hyze Cloud API](https://docs.hyzecloud.a
 ## Install
 
 ```bash
-npm install @hyzecloud/sdk
+npm install @hyze-cloud/sdk
 # or
-bun add @hyzecloud/sdk
+bun add @hyze-cloud/sdk
 ```
 
 ## Quickstart
 
 ```ts
-import { HyzeCloud, HyzeError } from "@hyzecloud/sdk";
+import { HyzeCloud, HyzeError } from "@hyze-cloud/sdk";
 
 const hyze = new HyzeCloud({
   apiKey: process.env.HYZE_API_KEY, // hyze_...
