@@ -226,6 +226,7 @@ There is no `NPM_TOKEN` anywhere — npm is restricting tokens that bypass 2FA f
 - [Hyze Cloud Docs](https://docs.hyzecloud.app)
 - [API introduction](https://docs.hyzecloud.app/api-reference/introduction)
 - [Rate limits](https://docs.hyzecloud.app/en/concepts/rate-limits)
+- [Changelog](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/blob/main/CHANGELOG.md)
 
 ## License
 
