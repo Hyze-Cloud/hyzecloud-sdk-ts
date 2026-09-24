@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@hyze-cloud/sdk)](https://www.npmjs.com/package/@hyze-cloud/sdk)
+[![node](https://img.shields.io/node/v/@hyze-cloud/sdk)](https://www.npmjs.com/package/@hyze-cloud/sdk)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Official **Node.js / Bun** SDK for the [Hyze Cloud API](https://docs.hyzecloud.app).
@@ -207,8 +208,18 @@ npm version patch   # or minor / major
 git push --follow-tags
 ```
 
-`release.yml` runs typecheck + build + `check:api` and publishes with `--access public --provenance`
-(OIDC-signed). `NPM_TOKEN` needs publish permission on the `@hyzecloud` scope.
+`release.yml` runs typecheck + build + `check:api` and publishes with `--access public`, signing
+provenance from the workflow itself.
+
+Authentication is **Trusted Publishing (OIDC)**, not a token: the npm package is bound to this
+repository and to `release.yml`, so a publish is only accepted coming from here. The binding is a
+one-time owner command (it needs interactive 2FA):
+
+```bash
+npm trust github @hyze-cloud/sdk --file release.yml --repo Hyze-Cloud/hyzecloud-sdk-ts --allow-publish
+```
+
+There is no `NPM_TOKEN` anywhere — npm is restricting tokens that bypass 2FA for direct publishing.
 
 ## Docs
 
