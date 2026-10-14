@@ -1,4 +1,4 @@
-export type Runtime = "node" | "bun" | "python";
+export type Runtime = "node" | "bun" | "python" | "go";
 export type DatabaseEngine = "postgresql" | "mysql" | "mongodb" | "redis";
 
 export type AppListStatus =
