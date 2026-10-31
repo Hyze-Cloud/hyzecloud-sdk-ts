@@ -40,6 +40,11 @@ export class DatabasesResource {
     return this.client.get(`/databases/${encodeURIComponent(databaseId)}/stats`);
   }
 
+  /** Métricas de execução de vários bancos de uma vez. Id de outro workspace é ignorado. */
+  statsMany(databaseIds: string[]) {
+    return this.client.get("/databases/stats", { ids: databaseIds.join(",") });
+  }
+
   logs(databaseId: string, query?: { tail?: number; timestamps?: boolean }) {
     return this.client.get(`/databases/${encodeURIComponent(databaseId)}/logs`, query);
   }

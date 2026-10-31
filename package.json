@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests",
     "smoke": "bun run scripts/live-smoke.ts",
     "check:api": "bun run scripts/check-api-routes.ts",
     "prepublishOnly": "bun run build"
