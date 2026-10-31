@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-31
+
 ### Added
 - `apps`: `deployment`, `deploymentLogs`, `buildProgress`, `cancelDeployment`, `retryDeployment`,
   `rollbackDeployment`, `rebuild`, `setAutoBackup`, `transfer` and `stats` (runtime stats for several apps).
