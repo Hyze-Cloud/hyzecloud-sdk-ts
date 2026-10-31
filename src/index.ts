@@ -10,6 +10,9 @@ export type {
   AppDeployment,
   AppDeploymentsResponse,
   AppDeploymentStatus,
+  AppDomain,
+  AppDomainResponse,
+  AppDomainsResponse,
   AppDetail,
   AppDetailResponse,
   AppEnvResponse,
@@ -23,6 +26,7 @@ export type {
   CreateApiKeyInput,
   CreateDatabaseInput,
   CreatePixInvoiceInput,
+  CreateTagInput,
   CurrentPlanResponse,
   DatabaseEngine,
   DatabaseItem,
@@ -31,6 +35,9 @@ export type {
   DatabaseStatus,
   DeployFromRepoInput,
   DeployFromZipInput,
+  DeploymentLogsResponse,
+  DomainSslStatus,
+  DomainStatus,
   GithubStatusResponse,
   HyzeClientOptions,
   InvoiceBilling,
@@ -46,8 +53,14 @@ export type {
   PlanUsage,
   RequestOptions,
   Runtime,
+  SetTagLinksInput,
+  Tag,
+  TagResponse,
+  TagsListResponse,
+  TransferAppInput,
   UpdateApiKeyInput,
   UpdateAppSettingsInput,
+  UpdateTagInput,
 } from "./types.js";
 
 export { AppsResource } from "./resources/apps.js";
@@ -56,6 +69,7 @@ export { ApiKeysResource } from "./resources/api-keys.js";
 export { InvoicesResource } from "./resources/invoices.js";
 export { GithubResource } from "./resources/github.js";
 export { PlansResource } from "./resources/plans.js";
+export { TagsResource } from "./resources/tags.js";
 
 import { HyzeCloud } from "./client.js";
 import type { HyzeClientOptions } from "./types.js";

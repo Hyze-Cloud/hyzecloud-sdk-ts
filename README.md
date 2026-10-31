@@ -68,6 +68,27 @@ await hyze.apps.setEnv("app_001", { NODE_ENV: "production" });
 // Deploy history (paginated)
 await hyze.apps.deployments("app_001", { limit: 30 });
 
+// One deploy: details with the stage timeline, build log, live progress
+await hyze.apps.deployment("app_001", "dep_001");
+await hyze.apps.deploymentLogs("app_001", "dep_001");
+await hyze.apps.buildProgress("app_001"); // latest build, or pass a deploymentId
+
+// Act on a deploy
+await hyze.apps.cancelDeployment("app_001", "dep_001");
+await hyze.apps.retryDeployment("app_001", "dep_001"); // same source, after a failure
+await hyze.apps.rollbackDeployment("app_001", "dep_001"); // back to an older deploy
+await hyze.apps.rebuild("app_001"); // rebuild with the current files
+
+// Runtime stats for several apps at once
+await hyze.apps.stats(["app_001", "app_002"]);
+
+// Custom domains: add, point the CNAME at `cnameTarget`, then verify
+const { domain } = await hyze.apps.addDomain("app_001", "api.example.com");
+// domain.cnameTarget, domain.status, domain.sslStatus
+await hyze.apps.verifyDomain("app_001", domain.id);
+await hyze.apps.listDomains("app_001");
+await hyze.apps.removeDomain("app_001", domain.id);
+
 // Deploy from ZIP (Node / Bun)
 import { readFileSync } from "node:fs";
 
@@ -111,6 +132,19 @@ await hyze.databases.create({
 await hyze.databases.list();
 await hyze.databases.start("db_001");
 await hyze.databases.createBackup("db_001");
+await hyze.databases.statsMany(["db_001", "db_002"]); // runtime stats, one call
+```
+
+## Tags
+
+Labels to group apps and databases. A tag is a filter: it gives no access and has no quota.
+
+```ts
+const { tag } = await hyze.tags.create({ name: "production", color: "#7c46ce" });
+await hyze.tags.setLinks({ kind: "app", id: "app_001", tagIds: [tag.id] }); // final list, not an add
+await hyze.tags.list();
+await hyze.tags.update(tag.id, { name: "prod" });
+await hyze.tags.delete(tag.id);
 ```
 
 ## API keys, invoices, GitHub, plans
@@ -190,6 +224,7 @@ Script: `scripts/live-smoke.ts`
 ```bash
 bun install
 bun run typecheck
+bun run test          # every method: which HTTP call it makes
 bun run build
 bun run check:api     # are the routes this SDK calls still there?
 ```

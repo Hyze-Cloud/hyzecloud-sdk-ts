@@ -443,3 +443,73 @@ export type GithubStatusResponse = {
   accountLogin?: string;
   appConfigured: boolean;
 };
+
+/** Estado do domínio próprio de um app (DNS e roteamento). */
+export type DomainStatus = "pending" | "verified" | "active" | "failed" | "released";
+
+/** Estado do certificado SSL do domínio. */
+export type DomainSslStatus = "none" | "pending" | "active" | "failed";
+
+export type AppDomain = {
+  id: string;
+  appId: string | null;
+  hostname: string;
+  status: DomainStatus;
+  sslStatus: DomainSslStatus;
+  /** Código de erro estável (`DOMAIN_*`) quando a verificação falhou; senão `null`. */
+  verificationErrors: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Para onde o CNAME do domínio precisa apontar. */
+  cnameTarget: string;
+  /** Registro TXT de posse, quando a plataforma já tem um. */
+  ownershipVerification?: { name: string; value: string | null; type: string | null } | null;
+};
+
+export type AppDomainsResponse = { success: true; domains: AppDomain[] };
+export type AppDomainResponse = { success: true; domain: AppDomain };
+
+export type DeploymentLogsResponse = {
+  success: true;
+  /** Log de instalação e build que a plataforma guardou para aquela tentativa. */
+  logs: string;
+  /** `pending`, `available`, `unavailable` ou `skipped`. */
+  logsStatus: string;
+};
+
+export type TransferAppInput = {
+  /** Workspace de destino. */
+  targetOrganizationId: string;
+};
+
+export type Tag = {
+  id: string;
+  name: string;
+  color: string;
+  /** Quantos apps e bancos usam a tag, quando a API informa. */
+  appCount?: number;
+  databaseCount?: number;
+};
+
+export type TagsListResponse = { success: true; tags: Tag[] };
+export type TagResponse = { success: true; tag: Tag };
+
+export type CreateTagInput = {
+  /** 1 a 40 caracteres, único no workspace. */
+  name: string;
+  color?: string;
+};
+
+export type UpdateTagInput = {
+  name?: string;
+  color?: string;
+};
+
+/** Substitui o conjunto de tags de um app ou banco: `tagIds` é a lista final. */
+export type SetTagLinksInput = {
+  kind: "app" | "database";
+  id: string;
+  tagIds: string[];
+};
+

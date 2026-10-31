@@ -1,6 +1,6 @@
 {
   "name": "@hyze-cloud/sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official Node.js / Bun SDK for the Hyze Cloud API",
   "type": "module",
   "main": "./dist/index.js",
@@ -21,6 +21,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test tests",
     "smoke": "bun run scripts/live-smoke.ts",
     "check:api": "bun run scripts/check-api-routes.ts",
     "prepublishOnly": "bun run build"

@@ -6,6 +6,7 @@ import { DatabasesResource } from "./resources/databases.js";
 import { GithubResource } from "./resources/github.js";
 import { InvoicesResource } from "./resources/invoices.js";
 import { PlansResource } from "./resources/plans.js";
+import { TagsResource } from "./resources/tags.js";
 
 const DEFAULT_BASE_URL = "https://api.hyzecloud.com/api";
 
@@ -39,6 +40,7 @@ export class HyzeCloud {
   readonly invoices: InvoicesResource;
   readonly github: GithubResource;
   readonly plans: PlansResource;
+  readonly tags: TagsResource;
 
   private readonly apiKey?: string;
   private readonly baseUrl: string;
@@ -70,6 +72,7 @@ export class HyzeCloud {
     this.invoices = new InvoicesResource(this);
     this.github = new GithubResource(this);
     this.plans = new PlansResource(this);
+    this.tags = new TagsResource(this);
   }
 
   /** Low-level request helper. Path is relative to base URL (e.g. `/apps/`). */

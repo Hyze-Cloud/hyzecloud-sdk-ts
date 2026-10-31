@@ -2,11 +2,15 @@ import type { HyzeCloud } from "../client.js";
 import type {
   AppDeploymentsResponse,
   AppDetailResponse,
+  AppDomainResponse,
+  AppDomainsResponse,
   AppEnvResponse,
   AppLogsResponse,
   AppsListResponse,
   DeployFromRepoInput,
   DeployFromZipInput,
+  DeploymentLogsResponse,
+  TransferAppInput,
   UpdateAppSettingsInput,
 } from "../types.js";
 
@@ -164,6 +168,96 @@ export class AppsResource {
   downloadBackup(appId: string, backupId: string) {
     return this.client.get(
       `/apps/${encodeURIComponent(appId)}/backups/${encodeURIComponent(backupId)}/download`,
+    );
+  }
+
+  /** Detalhes de um deploy, com a linha do tempo das etapas. */
+  deployment(appId: string, deploymentId: string) {
+    return this.client.get(
+      `/apps/${encodeURIComponent(appId)}/deployments/${encodeURIComponent(deploymentId)}`,
+    );
+  }
+
+  /** Log de instalação e build de um deploy. */
+  deploymentLogs(appId: string, deploymentId: string) {
+    return this.client.get<DeploymentLogsResponse>(
+      `/apps/${encodeURIComponent(appId)}/deployments/${encodeURIComponent(deploymentId)}/logs`,
+    );
+  }
+
+  /** Andamento da build em curso: do deploy indicado ou, sem `deploymentId`, do mais recente. */
+  buildProgress(appId: string, deploymentId?: string) {
+    const base = `/apps/${encodeURIComponent(appId)}`;
+    return this.client.get(
+      deploymentId === undefined
+        ? `${base}/build-progress`
+        : `${base}/deployments/${encodeURIComponent(deploymentId)}/build-progress`,
+    );
+  }
+
+  /** Cancela um deploy na fila ou em andamento. */
+  cancelDeployment(appId: string, deploymentId: string) {
+    return this.client.post(
+      `/apps/${encodeURIComponent(appId)}/deployments/${encodeURIComponent(deploymentId)}/cancel`,
+    );
+  }
+
+  /** Tenta de novo um deploy que falhou, com a mesma origem de código. */
+  retryDeployment(appId: string, deploymentId: string) {
+    return this.client.post(
+      `/apps/${encodeURIComponent(appId)}/deployments/${encodeURIComponent(deploymentId)}/retry`,
+    );
+  }
+
+  /** Volta o app para um deploy anterior (refaz o deploy daquela origem). */
+  rollbackDeployment(appId: string, deploymentId: string) {
+    return this.client.post(
+      `/apps/${encodeURIComponent(appId)}/deployments/${encodeURIComponent(deploymentId)}/rollback`,
+    );
+  }
+
+  /** Refaz a build e o deploy com os arquivos atuais do app. */
+  rebuild(appId: string) {
+    return this.client.post(`/apps/${encodeURIComponent(appId)}/rebuild`);
+  }
+
+  /** Liga ou desliga o backup automático diário. Exige um plano com backup automático. */
+  setAutoBackup(appId: string, enabled: boolean) {
+    return this.client.put(`/apps/${encodeURIComponent(appId)}/auto-backup`, { enabled });
+  }
+
+  /** Move o app para outro workspace. */
+  transfer(appId: string, input: TransferAppInput) {
+    return this.client.post(`/apps/${encodeURIComponent(appId)}/transfer`, input);
+  }
+
+  /** Métricas de execução de vários apps de uma vez. Id de outro workspace é ignorado. */
+  stats(appIds: string[]) {
+    return this.client.get("/apps/stats", { ids: appIds.join(",") });
+  }
+
+  /** Domínios próprios do app. */
+  listDomains(appId: string) {
+    return this.client.get<AppDomainsResponse>(`/apps/${encodeURIComponent(appId)}/domains`);
+  }
+
+  /** Adiciona um domínio próprio. Depois, aponte o CNAME (`cnameTarget`) e chame `verifyDomain`. */
+  addDomain(appId: string, hostname: string) {
+    return this.client.post<AppDomainResponse>(`/apps/${encodeURIComponent(appId)}/domains`, {
+      hostname,
+    });
+  }
+
+  /** Confere o DNS do domínio e provisiona o SSL. */
+  verifyDomain(appId: string, domainId: string) {
+    return this.client.post<AppDomainResponse>(
+      `/apps/${encodeURIComponent(appId)}/domains/${encodeURIComponent(domainId)}/verify`,
+    );
+  }
+
+  removeDomain(appId: string, domainId: string) {
+    return this.client.delete<{ success: boolean }>(
+      `/apps/${encodeURIComponent(appId)}/domains/${encodeURIComponent(domainId)}`,
     );
   }
 }
