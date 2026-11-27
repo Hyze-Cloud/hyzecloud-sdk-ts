@@ -1,6 +1,6 @@
 {
   "name": "@hyze-cloud/sdk",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Official Node.js / Bun SDK for Hyze Cloud — Brazilian hosting for sites, APIs and bots. Manage apps, deploys, databases and logs from code.",
   "type": "module",
   "main": "./dist/index.js",
