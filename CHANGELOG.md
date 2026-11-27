@@ -4,6 +4,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-27
+
+### Changed
+- Página do npm com o banner da Hyze Cloud, um parágrafo sobre a plataforma e links para hyzecloud.com;
+  `homepage` aponta para a página do SDK no site. Nenhuma mudança de código.
+
 ## [0.3.0] - 2026-10-31
 
 ### Added
