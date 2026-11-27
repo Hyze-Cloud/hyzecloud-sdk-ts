@@ -1,7 +1,7 @@
 {
   "name": "@hyze-cloud/sdk",
   "version": "0.3.0",
-  "description": "Official Node.js / Bun SDK for the Hyze Cloud API",
+  "description": "Official Node.js / Bun SDK for Hyze Cloud — Brazilian hosting for sites, APIs and bots. Manage apps, deploys, databases and logs from code.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -32,12 +32,19 @@
   "keywords": [
     "hyze",
     "hyzecloud",
+    "hyze-cloud",
     "sdk",
     "api",
+    "hosting",
     "paas",
     "deploy",
+    "discord-bot",
+    "bot-hosting",
     "bun",
-    "nodejs"
+    "nodejs",
+    "typescript",
+    "brasil",
+    "hospedagem"
   ],
   "license": "MIT",
   "repository": {
@@ -47,7 +54,7 @@
   "bugs": {
     "url": "https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/issues"
   },
-  "homepage": "https://docs.hyzecloud.app",
+  "homepage": "https://hyzecloud.com/pt-br/sdk-typescript",
   "publishConfig": {
     "access": "public"
   },

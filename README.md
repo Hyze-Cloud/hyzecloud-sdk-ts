@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://hyzecloud.com/pt-br/sdk-typescript?utm_source=npm&utm_medium=readme&utm_campaign=sdk-ts"><img src="https://raw.githubusercontent.com/Hyze-Cloud/.github/main/profile/hyze-banner.gif" alt="Hyze Cloud" width="100%"></a>
+</p>
+
 # @hyze-cloud/sdk
 
 [![CI](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/Hyze-Cloud/hyzecloud-sdk-ts/actions/workflows/ci.yml)
@@ -6,6 +10,8 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Official **Node.js / Bun** SDK for the [Hyze Cloud API](https://docs.hyzecloud.app).
+
+> **[Hyze Cloud](https://hyzecloud.com/pt-br?utm_source=npm&utm_medium=readme&utm_campaign=sdk-ts)** is Brazilian hosting for sites, APIs and bots: push your code from GitHub or a ZIP, and it builds and goes live with HTTPS, with the database in the same dashboard. Billed in BRL (Pix or card), with support in Portuguese. Plans from R$ 5,99/month, with a 7-day free trial.
 
 - Zero runtime dependencies (uses native `fetch`)
 - Works on **Node 18+** and **Bun**
